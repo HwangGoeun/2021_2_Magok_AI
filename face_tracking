@@ -1,0 +1,53 @@
+from jetbot import Camera
+from jetbot import bgr8_to_jpeg
+import PID
+camera = Camera.instance(width=720, height=720)
+
+global face_x, face_y, face_w, face_h
+face_x = face_y = face_w = face_h = 0
+global target_valuex
+target_valuex = 2048
+global target_valuey
+target_valuey = 2048
+
+xservo_pid = PID.PositionalPID(1.9, 0.3, 0.35)
+yservo_pid = PID.PositionalPID(1.5, 0.2, 0.3)
+
+from servoserial import ServoSerial
+servo_device = ServoSerial() 
+
+import traitlets
+import ipywidgets.widgets as widgets
+from IPython.display import display
+face_image = widgets.Image(format='jpeg', width=300, height=300)
+display(face_image)
+
+import cv2
+face_cascade = cv2.CascadeClassifier('123.xml')
+
+while 1:
+    frame = camera.value
+    frame = cv2.resize(frame, (300, 300))
+    gray = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
+    faces = face_cascade.detectMultiScale( gray )
+    if len(faces)>0:
+        (face_x, face_y, face_w, face_h) = faces[0]
+        # Mark the detected face
+        # cv2.rectangle(frame,(face_x,face_y),(face_x+face_h,face_y+face_w),(0,255,0),2)
+        cv2.rectangle(frame,(face_x+10,face_y),(face_x+face_w-10,face_y+face_h+20),(0,255,0),2)
+
+        # Proportion-Integration-Differentiation algorithm
+        # Input X-axis direction parameter PID control input
+        xservo_pid.SystemOutput = face_x+face_h/2
+        xservo_pid.SetStepSignal(150)
+        xservo_pid.SetInertiaTime(0.01, 0.006)
+        target_valuex = int(2048 + xservo_pid.SystemOutput)
+        # Input Y axis direction parameter PID control input
+        yservo_pid.SystemOutput = face_y+face_w/2
+        yservo_pid.SetStepSignal(150)
+        yservo_pid.SetInertiaTime(0.01, 0.006)
+        target_valuey = int(2048+yservo_pid.SystemOutput)
+        # Rotate the gimbal to the PID adjustment position
+        servo_device.Servo_serial_double_control(1, target_valuex, 2, target_valuey)
+    # Real-time return of image data for display
+    face_image.value = bgr8_to_jpeg(frame)

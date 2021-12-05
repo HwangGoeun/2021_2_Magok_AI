@@ -75,6 +75,7 @@ def linetracing():
                     robot.forward(0.8)
 #####################################################################################################3
 
+
             # This also acts as
             keyCode = cv2.waitKey(30) & 0xFF
             # Stop the program on the ESC key
